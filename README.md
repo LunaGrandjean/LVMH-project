@@ -1,428 +1,280 @@
 # LVMH Supplier Risk Management Platform
 
-A comprehensive data-driven solution for managing, tracking, and assessing risk across LVMH's global supplier network in the fashion and ready-to-wear sector.
+LVMH Supplier Risk Management Platform is an interactive Streamlit web application that evaluates supplier risk by combining internal data with real-time, AI-enriched geopolitical and environmental context.
 
-## Project Overview
+---
 
-This project addresses LVMH's critical business challenge of centralizing supplier data, monitoring certifications, assessing multi-factor risks, and managing supplier compliance across the supply chain.
+## Overview
 
-The platform consists of:
-- **Phase 1**: Executive dashboard with real-time risk assessment (Production-Ready)
-- **Phase 2**: Data collection and management portal for real supplier information (Ready to Deploy)
+This project provides a web-based dashboard for managing supplier risk in a luxury fashion context (LVMH-style ecosystem).
+It combines a CSV-based supplier dataset with external intelligence (OpenAI) to produce composite risk scores and interactive visualizations.
 
-## Key Problem Solved
+Main features:
 
-Suppliers provide a wide range of information that varies in format, quality, and completeness. Certifications and documents have expiration dates requiring continuous monitoring. Supplier data is often stored across multiple systems, making it difficult to maintain a unified and real-time view of supplier status. This platform centralizes all supplier data and continuously monitors critical compliance metrics.
+- Multi-factor supplier risk scoring (certifications, compliance, geopolitical, environmental, operational).
+- Real-time contextual enrichment using OpenAI for each supplier location (country / city).
+- Interactive dashboards: KPIs, distributions, country views, and supplier-level drill-down.
 
-## Architecture
+---
 
-### Dual Application System
+## Features
 
-The platform consists of two complementary Streamlit applications:
+### Supplier Risk Model
 
-**Application 1: Dashboard (app.py)**
-- Executive overview and analytics
-- Real-time risk scoring and alerts
-- Certification expiry tracking
-- Supplier filtering and search
-- CSV data export
+- Composite risk score built from:
+  - Certification risk (GOTS, GRS, RWS, ZDHC, WRAP, etc.).
+  - Compliance risk with a geopolitical component by country.
+  - Geopolitical risk (country-level).
+  - Environmental / climate risk (location-level).
+  - Operational and capacity risk (baseline in this version).
+- Risk score normalized between 0 and 1 and mapped to:
+  - Low, Medium, High, Critical.
 
-**Application 2: Data Collection Portal (data_collection.py)**
-- Certification date management
-- Audit scheduling and results tracking
-- Incident reporting system
-- Bulk data upload capability
-- Complete activity logging
+### External Intelligence (OpenAI)
 
-Both applications share a single data source (`suppliers_full_data.csv`), ensuring data consistency and real-time synchronization.
+For each supplier (or country sample), the app calls the OpenAI API and retrieves structured JSON containing:
 
-## Quick Start
+- geopolitical_factors: political / trade tensions, sanctions, regulations.
+- geopolitical_score: geopolitical risk score [0–1].
+- environmental_factors: climate risks, natural disasters, water stress, pollution.
+- environmental_score: environmental risk score [0–1].
+- climate_risk: Low / Moderate / High / Critical.
+- supply_chain_disruption_risk: Low / Moderate / High / Critical.
+- regulatory_changes: recent changes affecting textile / fashion supply chains.
+
+Results are cached per (country, city) with st.session_state to reduce repeated calls.
+
+### Pages and Dashboards
+
+The app is organized into multiple pages using the Streamlit sidebar:
+
+| Page | Description |
+|------|-------------|
+| Dashboard | Executive view with KPIs, risk distribution, top countries, and Top 5 highest-risk suppliers. |
+| Supplier Directory | Filterable directory (risk level, country, category) with CSV export. |
+| Supplier Details | Detailed supplier profile (info, certifications, risk, external intelligence). |
+| Certification Tracker | Consolidated certification view and counts by type. |
+| Risk Analysis | Portfolio analytics (average risk by country, distribution by level, size vs risk). |
+| External Intelligence | Country-level panels with geopolitical and environmental narratives and scores. |
+| Analytics | Portfolio statistics and detailed supplier list with CSV export. |
+
+---
+
+## Data Model
+
+The app reads an input CSV (suppliers_full_data.csv) with lowercase column names and normalizes them to the internal schema used by the code.
+Example CSV Header:
+```
+name,category,subcategory,certification_score,address,postal_code,city,country,certifications,employees,production_capacity,last_audit_date,audit_status,next_audit_date,grs_expiry,zdhc_expiry,gots_expiry,rwas_expiry,wrap_expiry,has_incidents,incident_type,geopolitical_risk,environmental_risk,compliance_risk
+```
+
+### Column Mapping (CSV to internal)
+
+On load, the following columns are renamed:
+
+- name → Name
+- category → Supplier Category
+- city → City
+- country → Country
+- certifications → Supplier certifications
+- employees → Number of employees
+- production_capacity → Production capacity
+- address → Company address
+- postal_code → Postal code
+
+
+### Risk Engine Details
+
+- Certification: derived from Supplier certifications by mapping each known certification (GOTS, GRS, RWS, ZDHC, WRAP) to a score and averaging.
+- Compliance: base risk plus a country component from GEOPOLITICAL_RISK_BY_COUNTRY.
+- Geopolitical / Environmental: either taken from OpenAI context or default fallback values.
+- Final weighting:
+
+  - 25%: certification
+  - 20%: compliance
+  - 20%: geopolitical
+  - 20%: environmental
+  - 10%: capacity utilization
+  - 5%: operational
+
+---
+
+## Installation
 
 ### Prerequisites
-- Python 3.9 or higher
-- pip package manager
 
-### Installation
+- Python 3.10+
+- A valid OpenAI API key (for external intelligence)
+- git and virtualenv
+
+### Setup
 
 ```bash
-# Clone or download the repository
-cd lvmh-supplier-risk-management
+# Clone the repository
+git clone https://github.com/LunaGrandjean/LVMH-project
+cd LVMH-project
 
-# Create a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Create and activate a virtual environment (optional)
+python -m venv .venv
+# macOS / Linux
+source .venv/bin/activate
+# Windows
+.venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+## OpenAI API Configuration
+
+The app reads the OpenAI API key from:
+
+1. Streamlit secrets (recommended for deployment), or
+2. Environment variable.
+
+### Option 1: .streamlit/secrets.toml
+
+Create:
+
+```toml
+OPENAI_API_KEY = "sk-..."
 ```
 
-### Running the Application
+### Option 2: Environment Variable
 
-Open two terminal windows:
+```bash
+export OPENAI_API_KEY="sk-..."
+# Windows (PowerShell)
+$env:OPENAI_API_KEY="sk-..."
+```
 
-**Terminal 1 - Dashboard**
+Without an API key:
+
+- The app still runs, but
+- External intelligence is disabled,
+- Risk scores fall back to default baselines.
+
+---
+
+## Running the App
+
+From the project root:
+
 ```bash
 streamlit run app.py
-# Opens at http://localhost:8501
 ```
 
-**Terminal 2 - Data Collection**
-```bash
-streamlit run data_collection.py
-# Opens at http://localhost:8502
-```
+---
 
-Both applications will run simultaneously and share the same data file.
+## Usage Guide
 
-## Phase 1: Dashboard Application
+### 1. Dashboard
 
-### Features
+- Global KPIs: total suppliers, number of countries, share of High/Critical risk suppliers.
+- Charts:
+  - Risk level distribution (pie).
+  - Top 10 countries by number of suppliers.
+- Top 5 Highest Risk Suppliers panel with color-coded risk.
 
-**1. Dashboard Page**
-- Real-time key performance indicators (total suppliers, high-risk count, expiring certifications, incidents)
-- Risk distribution visualization
-- Geographic supplier distribution
-- Critical alerts feed
-- Top 5 highest risk suppliers
+### 2. Supplier Directory
 
-**2. Supplier Directory**
-- Browse all 20 suppliers with complete information
-- Multi-criteria filtering (risk level, country, audit status)
-- Sortable by risk score
-- Quick overview of supplier details
+- Filters:
+  - Risk level (Low / Medium / High / Critical)
+  - Country
+  - Supplier category
+- Interactive table + CSV export.
 
-**3. Supplier Details**
-- Complete supplier profile and company information
-- Full certification tracking with expiry dates
-- Audit history and next scheduled audit
-- Risk factor breakdown (geopolitical, environmental, compliance)
-- Incident history
+### 3. Supplier Details
 
-**4. Certification Tracker**
-- Timeline view of all certifications across supplier network
-- Critical alerts for certifications expiring within 30 days
-- Compliant certifications view (valid for 90+ days)
-- Days-to-expiry calculations
-- Recommended actions for expiring certifications
+- Select a supplier from the dropdown.
+- View:
+  - Country, city, headcount, category, address, capacity.
+  - Certifications as badges.
+  - External Intelligence block:
+    - Geopolitical / environmental narratives
+    - Numeric scores (progress bars)
+    - Climate Risk and Supply Chain Disruption Risk labels.
 
-**5. Risk Assessment**
-- Risk score distribution histogram
-- Risk factors heatmap by risk level
-- Country-level risk analysis and comparison
-- Critical supplier identification and details
+### 4. Certification Tracker
 
-**6. Analytics & Reporting**
-- Portfolio statistics (total suppliers, countries, average risk score)
-- Supplier distribution by supply chain category
-- Risk vs. supplier size scatter plot
-- CSV export functionality for Excel integration
+- Consolidated view of certifications by type.
+- Filter by certification (e.g. GOTS).
+- Bar chart of certification counts by type.
 
-### Risk Scoring Algorithm
+### 5. Risk Analysis
 
-The platform implements a weighted multi-factor risk assessment model:
+- Bar chart: average risk score by country (Top 10).
+- Boxplot: distribution of scores by risk level.
+- Scatter plot: Number of employees vs Risk_Score to spot large high-risk suppliers.
 
-**Overall Risk Score = (Certification Risk × 0.25) + (Audit Risk × 0.20) + (Geopolitical Risk × 0.20) + (Environmental Risk × 0.15) + (Incident Risk × 0.15)**
+### 6. External Intelligence
 
-**Risk Factor Definitions:**
+- Select one or more countries to analyze.
+- For each country:
+  - Geopolitical narrative + score
+  - Environmental narrative + score
+  - Climate Risk
+  - Supply Chain Disruption Risk
 
-1. **Certification Expiry Risk (25% weight)**
-   - Expired: 3.0
-   - Expires in <30 days: 2.5
-   - Expires in <90 days: 2.0
-   - Expires in <180 days: 1.5
-   - Valid >180 days: 0.5
-   - Missing certifications: 2.0
+### 7. Analytics
 
-2. **Audit Status Risk (20% weight)**
-   - Passed: 0.5
-   - Pending: 1.5
-   - Failed: 3.0
+- Portfolio KPIs: total suppliers, number of countries, average employees.
+- Distribution by supplier category and by country.
+- Detailed supplier table with CSV export.
 
-3. **Geopolitical Risk (20% weight)**
-   - Low: 0.5
-   - Medium: 1.5
-   - High: 2.5
+---
 
-4. **Environmental Risk (15% weight)**
-   - Low: 0.5
-   - Medium: 1.5
-   - High: 2.5
-
-5. **Incident Risk (15% weight)**
-   - No incidents: 0.5
-   - Has incidents: 2.5
-
-**Risk Level Classification:**
-- Low: 0.0 - 1.5
-- Medium: 1.5 - 2.0
-- High: 2.0 - 2.5
-- Critical: 2.5+
-
-## Phase 2: Data Collection Portal
-
-### Features
-
-**1. Certification Updates**
-- Manual entry of certification expiry dates
-- Support for 5 certification types (GRS, ZDHC, GOTS, RWS, WRAP GOLD)
-- Optional issue date tracking
-- Certificate file upload (PDF, JPG, PNG)
-- Notes and comments field
-- Real-time CSV update
-
-**2. Audit Scheduling**
-- Record audit dates and results
-- Support for multiple audit types (Certification, Quality, Compliance, Re-Audit, Surprise)
-- Track auditor information
-- Schedule next audit date
-- Document corrective actions for failed audits
-- Detailed findings and observations
-
-**3. Incident Reporting**
-- Document supplier incidents and controversies
-- 9 incident types (Labor, Environmental, Quality, Safety, Sanction, Bankruptcy, Media, Regulatory, Other)
-- Severity classification (Low, Medium, High, Critical)
-- Source tracking with optional URL reference
-- Status management (Open, Under Investigation, Resolved, Monitoring)
-- Resolution documentation
-
-**4. Bulk Upload**
-- CSV file import for batch updates
-- Support for updating certifications, audits, and incidents simultaneously
-- Validation before processing
-- Preview of data before import
-- Complete activity logging
-
-**5. Data History**
-- View all changes made to supplier data
-- Filter by action type, supplier, and time period
-- Complete timestamps for all updates
-- Full details of each change
-- Compliance-ready audit trail
-
-### Activity Logging
-
-All changes are automatically logged to `data_log.jsonl` with:
-- Timestamp of change
-- Type of action performed
-- Affected supplier
-- Complete details of what changed
-- User-provided notes and context
-
-## Data Structure
-
-### Supplier Dataset (suppliers_full_data.csv)
-
-The platform manages 20 suppliers with 24 data fields:
-
-**Basic Information:**
-- Supplier name, address, city, country
-- Supply chain category and subcategories
-- Number of employees
-- Production capacity
-
-**Certification Data:**
-- Types held (GRS, ZDHC, GOTS, RWS, WRAP GOLD)
-- Expiry dates for each certification
-- Certification score (0-5 legacy field)
-
-**Audit Data:**
-- Last audit date and status (Passed/Pending/Failed)
-- Next scheduled audit date
-
-**Risk Indicators:**
-- Geopolitical risk level (Low/Medium/High)
-- Environmental risk level (Low/Medium/High)
-- Compliance risk level (Low/Medium/High)
-- Incident flag and incident type
-
-**Calculated Fields (Auto-updated):**
-- Overall risk score
-- Risk level classification
-- Days to nearest certification expiry
-
-## Current Dataset
-
-The platform comes with initial data for 20 suppliers:
-
-**Geographic Coverage:**
-- Italy: 6 suppliers (30%)
-- China: 3 suppliers (15%)
-- Other EU countries: 6 suppliers (30%)
-- Rest of world: 5 suppliers (25%)
-- 11 unique countries total
-
-**Supply Chain Coverage:**
-- Raw material extraction (breeding, harvesting, preparation, tanning)
-- Material transformation (spinning, dyeing, weaving, knitting, non-woven processing)
-- Manufacturing (ready-to-wear, shoes, trims/buttons, laundry, vulcanization)
-
-**Certification Coverage:**
-- GRS: 45% of suppliers
-- ZDHC: 40% of suppliers
-- GOTS: 35% of suppliers
-- WRAP GOLD: 20% of suppliers
-- RWS: 15% of suppliers
-
-## Development Status
-
-### Phase 1: Complete (Production-Ready)
-- Dashboard with 6 pages and all features
-- Risk scoring algorithm implemented
-- Data loading and caching
-- Interactive Plotly visualizations
-- Comprehensive documentation
-- All features tested and working
-
-### Phase 2: Complete (Ready to Deploy)
-- Data collection portal with 5 modes
-- Certification management system
-- Audit tracking system
-- Incident reporting system
-- Bulk import capability
-- Activity logging system
-- All features tested and working
-
-### Phase 3: Planned (Future Development)
-- Machine learning-based risk prediction
-- Financial stability scoring
-- Geopolitical risk index integration
-- Water stress and environmental assessment
-- ESG performance metrics
-- Real-time incident detection
-- Advanced risk analytics
-
-### Phase 4: Planned (Future Development)
-- Automated mitigation recommendations
-- Supplier diversification analysis
-- Corrective action plan tracking
-- Risk-based supplier prioritization
-
-### Phase 5: Planned (Future Development)
-- Multi-user access control
-- Admin dashboard
-- Real-time alert system
-- Cloud deployment
-- API integration
-
-## File Structure
+## Project Structure
 
 ```
-project/
-├── app.py                      # Main dashboard application (500+ lines)
-├── data_collection.py          # Data entry portal (600+ lines)
-├── suppliers_full_data.csv     # Supplier dataset (20 records, 24 fields)
-├── requirements.txt            # Python dependencies
-├── README.md                   # This file
+.
+├── app.py                     # Main Streamlit application
+├── create-dataset.py          # Script to create CSV dataset
+├── suppliers_full_data.csv    # Supplier dataset 
+├── requirements.txt           # Python dependencies
+└── .streamlit/
+    └── secrets.toml           # OPENAI_API_KEY (optional)
 ```
+
+---
 
 ## Dependencies
-- **streamlit** (1.32.0) - Web application framework
-- **pandas** (2.1.3) - Data manipulation and analysis
-- **plotly** (5.18.0) - Interactive visualization
-- **numpy** (1.26.2) - Numerical operations
-- **python-dateutil** (2.8.2) - Date handling
 
-Install all dependencies:
-```bash
-pip install -r requirements.txt
-```
+Key Python packages required:
 
-## Configuration
+- streamlit: Web application framework
+- pandas: Data manipulation and analysis
+- numpy: Numerical computing
+- plotly: Interactive visualizations
+- openai: OpenAI API client
 
-### Modifying Risk Thresholds
+---
 
-Edit the `calculate_overall_risk()` function in `app.py` to adjust:
-- Certification expiry alert threshold (currently 30 days)
-- Risk factor weights (currently 25%, 20%, 20%, 15%, 15%)
-- Risk level classification boundaries
+## Possible Extensions
 
-### Customizing Certification Types
+- Use geopolitical_risk, environmental_risk, compliance_risk columns as overrides when present in the CSV.
+- Implement LVMH-specific compliance rules based on the Supplier Code of Conduct.
+- Integrate external ESG scores or third-party audit platforms.
+- Add alerting (email / Teams / Slack) when a supplier moves from Medium to High/Critical.
+- Implement supplier audit scheduling and tracking.
+- Add trend analysis over time for risk scores.
+- Support for historical data and time-series risk tracking.
 
-To add a new certification type:
-1. Add column to `suppliers_full_data.csv` (e.g., `iso_expiry`)
-2. Update certification column mappings in `data_collection.py`
-3. Add to dropdown options in data entry forms
+---
 
-### Changing Risk Factors
 
-To modify geopolitical or environmental risk levels:
-1. Update risk factor mapping in `calculate_overall_risk()` function
-2. Adjust weights if needed
-3. Recalculate risk scores (automatic on dashboard reload)
+## Disclaimer
 
-## Usage Examples
+This project is an educational and prototype tool inspired by supplier risk management practices and is not an official LVMH product.
+Risk scores and narratives are algorithmic and AI-generated and must not be used as the sole basis for real-world compliance or purchasing decisions.
 
-### Finding Expiring Certifications
-1. Open Dashboard (app.py)
-2. Go to "Certification Tracker" page
-3. Switch to "Critical (<30 days)" tab
-4. See all suppliers needing urgent action
+---
 
-### Recording a New Audit
-1. Open Data Collection portal (data_collection.py)
-2. Select "Audit Scheduling" mode
-3. Choose supplier and audit type
-4. Enter audit date and result
-5. Click "Save Audit Record"
-6. Check Dashboard immediately for updated data
+## Authors
+- Luna Grandjean -
+- Sereine Tawamba -
+- Santiago Pastrana -
+- Daniel Perez Triana -
 
-### Bulk Importing Supplier Data
-1. Prepare CSV with columns: supplier_name, cert_type, expiry_date, etc.
-2. Open Data Collection portal
-3. Go to "Bulk Upload" mode
-4. Upload CSV file
-5. Review preview and validation
-6. Click "Process Upload"
+---
 
-### Viewing Change History
-1. Open Data Collection portal
-2. Select "Data History" mode
-3. Filter by action type, supplier, or date range
-4. Click on any entry to see full details
-5. Export for compliance records
 
-## Best Practices
-
-### Data Entry
-- Use official certification documents as source
-- Verify supplier names exactly match database
-- Record audit dates when they occur
-- Document incidents promptly with source information
-- Schedule next audits during current audit process
-
-### Regular Maintenance
-- Review dashboard daily for critical alerts
-- Update certification dates before expiration (at least 30 days in advance)
-- Process bulk audit updates quarterly
-- Archive activity logs monthly
-- Backup suppliers_full_data.csv weekly
-
-### Risk Assessment
-- Investigate high-risk suppliers immediately
-- Verify geopolitical and environmental factors regularly
-- Update incident flags when issues resolve
-- Consider supplier diversification for critical materials
-- Use risk scores to prioritize audit scheduling
-
-## Data Privacy and Security
-
-- All data stored locally in CSV format
-- No cloud uploads or external API calls
-- Compatible with corporate firewalls
-- Activity log provides compliance audit trail
-- Ready for enterprise deployment
-
-## Integration with External Systems
-
-### Phase 3 Planned Integrations
-- World Bank geopolitical risk indices
-- Environmental performance databases
-- Financial credit rating services
-- News and incident detection APIs
-- ESG performance databases
-
-### Current Integration
-- Single CSV data source
-- Easy Excel import/export
-- Compatible with SQL databases (Phase 3)
