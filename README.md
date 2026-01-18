@@ -270,10 +270,10 @@ Risk scores and narratives are algorithmic and AI-generated and must not be used
 ---
 
 ## Authors
-- Luna Grandjean -
-- Sereine Tawamba -
-- Santiago Pastrana -
-- Daniel Perez Triana -
+- *Luna Grandjean* 
+- *Sereine Tawamba*
+- *Santiago Pastrana* 
+- *Daniel Perez Triana*
 
 ---
 
